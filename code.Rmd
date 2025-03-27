@@ -8,6 +8,8 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(dplyr)
+library(ggplot2)
 ```
 
 # Exploratory Data Analysis
@@ -16,13 +18,77 @@ library(tidyverse)
 load("./data/dat1.RData")
 load("./data/dat2.RData")
 
-# variable summary
-summary(dat1)
-summary(dat2)
 # no missing data
 all(is.na(dat1))
 all(is.na(dat2))
+
+ifelse(all(names(dat1) == names(dat2)), "train and test data have same structure", "train and test data have different structure")
+str(dat1)
 ```
+## Univariate analysis(continous & categorical)
+
+```{r EDA_univar}
+continuous_var <- dat1 %>% 
+  select(age, height, weight, bmi, SBP, LDL, time, log_antibody)
+
+categorical_var <- dat1 %>% 
+  select(gender, race, smoking, diabetes, hypertension) %>% 
+  mutate(
+    # Convert binary variables to factors with labels
+    gender = factor(gender, levels = c(0, 1), labels = c("Female", "Male")),
+    diabetes = factor(diabetes, levels = c(0, 1), labels = c("No", "Yes")),
+    hypertension = factor(hypertension, levels = c(0, 1), labels = c("No", "Yes"))
+  )
+
+# Continuous:
+summary(continuous_var)
+# Boxplots
+continuous_var_long <- continuous_var %>%
+  tidyr::pivot_longer(cols = everything(), names_to = "variable", values_to = "value")
+
+ggplot(continuous_var_long, aes(x = variable, y = value)) +
+  geom_boxplot(fill = "lightblue") +
+  facet_wrap(~variable, scales = "free", ncol = 3) +
+  theme_minimal() +
+  labs(title = "Boxplots of Continuous Variables")
+
+# Categorical:
+summary(continuous_var)
+# bar plots
+categorical_var_long <- categorical_var %>%
+  tidyr::pivot_longer(cols = everything(), names_to = "variable", values_to = "value")
+
+ggplot(categorical_var_long, aes(x = value)) +
+  geom_bar(fill = "salmon") +
+  facet_wrap(~variable, scales = "free", ncol = 3) +
+  theme_minimal() +
+  labs(title = "Bar Plots of Categorical Variables", x = "Category", y = "Count")
+```
+According to the box plot for continuous variables:
+
+- `Age`, `BMI`, and `SBP` appear reasonably normally distributed, with expected ranges for an adult population; `LDL` cholesterol and `time` since vaccination show a wider range and some outliers, which may impact linear models.
+
+- `log_antibody` (response) appears fairly symmetrical, which supports its use as a continuous response in linear or GAM models.
+
+- Correlations and non-linear trends should be assessed in the next step to guide model form.
+
+According to the bar plot for categorical variables:
+
+- `Gender` is fairly balanced between Female and Male; 
+
+- `Race` is skewed, with a majority of participants identifying as White (Category 1). Other racial/ethnic groups are underrepresented; 
+
+- `Smoking` status shows that the majority are never smokers (Category 0), with fewer current and former smokers; 
+
+- A large proportion of participants do not have `diabetes`; 
+
+- A moderate split exists for `hypertension`, which may contribute meaningfully to clinical outcome variation
+
+- Demographically, the population is balanced by gender but skewed by race and smoking status.
+
+Overall, we believe the response variable `log_antibody` is well-behaved, and further correlation analysis(eg. bivariate) is needed.
+
+
 
 ```{r}
 ggplot(dat1, aes(x = log_antibody)) +

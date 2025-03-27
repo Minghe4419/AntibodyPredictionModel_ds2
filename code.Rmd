@@ -9,6 +9,12 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(reshape2)
+library(car)
+library(glmnet)
+library(caret) 
+library(mgcv)
+library(pdp)
+library(earth)
 ```
 
 # Exploratory Data Analysis
@@ -112,7 +118,6 @@ ggplot(dat1, aes(x = log_antibody)) +
   ggtitle("Histogram of log_antibody") +
   xlab("log_antibody") +
   theme_minimal()
-
 ```
 
 
@@ -136,10 +141,10 @@ Using LOESS method, we observe linearity between predictors and the response. Th
 
 ```{r}
 # categorical data
-categorical_vars <- c("gender", "race", "smoking", "diabetes", "hypertension")
-dat1[categorical_vars] <- lapply(dat1[categorical_vars], factor)
+categorical_name <- c("gender", "race", "smoking", "diabetes", "hypertension")
+dat1[categorical_name] <- lapply(dat1[categorical_vars], factor)
 
-for (var in categorical_vars) {
+for (name in categorical_name) {
   p <- ggplot(dat1, aes_string(x = var, y = "log_antibody", fill = var)) +
     geom_boxplot() +
     ggtitle(paste("Boxplot of log_antibody by", var)) +
@@ -153,14 +158,13 @@ for (var in categorical_vars) {
 ## Correlation Analysis
 
 ```{r}
-continous_vars <- c("age", "height", "weight", "bmi", "SBP", "LDL", "time", "log_antibody")
-dat_cont <- dat1[ , continous_vars]
+continous_name <- c("age", "height", "weight", "bmi", "SBP", "LDL", "time", "log_antibody")
+dat_cont <- dat1[ , continous_name]
 
 # coefficient matrix
 cor_matrix <- cor(dat_cont, use = "complete.obs", method = "pearson")
 
 print(round(cor_matrix, 2))
-
 ```
 
 ```{r}
@@ -180,8 +184,6 @@ ggplot(cor_melt, aes(Var1, Var2, fill = value)) +
 ```
 
 ```{r}
-categorical_vars <- c("gender", "race", "smoking", "diabetes", "hypertension")
-
 for (i in 1:(length(categorical_vars)-1)) {
   for (j in (i+1):length(categorical_vars)) {
     var1 <- categorical_vars[i]
@@ -200,35 +202,16 @@ for (i in 1:(length(categorical_vars)-1)) {
 
 ```{r}
 # VIF
-library(car)
-
 lm_full <- lm(log_antibody ~ age + gender + smoking + height + weight + bmi + 
                 diabetes + hypertension + SBP + LDL + time, data = dat1)
 
 vif(lm_full)
 ```
 
-```{r}
-#
-model_data <- dat1 %>%
-  select(log_antibody, age, height, weight, bmi, SBP, LDL, time,
-         gender, race, smoking, diabetes, hypertension) %>%
-  mutate(
-    gender = factor(gender, levels = c(0, 1), labels = c("Female", "Male")),
-    diabetes = factor(diabetes, levels = c(0, 1), labels = c("No", "Yes")),
-    hypertension = factor(hypertension, levels = c(0, 1), labels = c("No", "Yes"))
-  )
-
-
-x <- model.matrix(log_antibody ~ ., data = model_data)[, -1]
-y <- model_data$log_antibody
-
-```
-
 
 ```{r}
-library(glmnet)
-
+x <- model.matrix(log_antibody ~ ., data = dat1)[, -1]
+y <- dat1$log_antibody
 
 lasso_cv <- cv.glmnet(x, y, alpha = 1, standardize = TRUE)
 
@@ -236,7 +219,7 @@ lasso_cv <- cv.glmnet(x, y, alpha = 1, standardize = TRUE)
 lasso_cv$lambda.min
 
 
-lasso_coef <- coef(lasso_cv, s = "lambda.min")
+lasso_coef <- coef(lasso_cv, s = "lambda.1se")
 print(lasso_coef)
 
 plot(lasso_cv)
@@ -244,16 +227,12 @@ plot(lasso_cv)
 
 
 ```{r}
-
 ridge_cv <- cv.glmnet(x, y, alpha = 0, standardize = TRUE)
-
 
 ridge_cv$lambda.min
 
-
 ridge_coef <- coef(ridge_cv, s = "lambda.min")
 print(ridge_coef)
-
 ```
 
 ## Interaction Analysis
@@ -274,22 +253,14 @@ dat1_ageGroup <- dat1 %>%
 # Model Training
 
 ```{r}
-library(caret) 
-library(mgcv)
-library(pdp)
-library(earth)
-library(tidyverse)
-library(ggplot2)
-```
-
-
-```{r}
 ctrl1 <- trainControl(method = "cv", number = 10)
 
 train_y <- dat1$log_antibody
 train_x <- dat1[, -which(names(dat1) == "log_antibody")]
+```
 
 
+```{r}
 set.seed(2)
 gam.fit <- train(train_x, train_y,
                  method = "gam",

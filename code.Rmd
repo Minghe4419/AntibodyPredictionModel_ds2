@@ -30,14 +30,18 @@ all(is.na(dat2))
 ifelse(all(names(dat1) == names(dat2)), "train and test data have same structure", "train and test data have different structure")
 str(dat1)
 ```
-## Univariate analysis(continous & categorical)
 
-```{r EDA_univar}
+```{r}
 dat1 <- dat1 %>% 
   select(-id)
 
 dat2 <- dat2 %>% 
   select(-id)
+```
+
+## Univariate analysis(continous & categorical)
+
+```{r EDA_univar}
 continuous_var <- dat1 %>% 
   select(age, height, weight, bmi, SBP, LDL, time, log_antibody)
 
@@ -211,36 +215,6 @@ vif(lm_full)
 
 
 ```{r}
-x <- model.matrix(log_antibody ~ ., data = dat1)[, -1]
-y <- dat1$log_antibody
-
-lasso_cv <- cv.glmnet(x, y, alpha = 1, standardize = TRUE)
-
-
-lasso_cv$lambda.min
-
-
-lasso_coef <- coef(lasso_cv, s = "lambda.1se")
-print(lasso_coef)
-
-plot(lasso_cv)
-```
-
-
-```{r}
-x_test <- model.matrix(log_antibody ~ ., data = dat2)[, -1]
-
-y_test <- dat2$log_antibody
-
-y_pred_lasso <- predict(lasso_cv, newx = x_test, s = "lambda.1se")
-
-rmse_lasso <- sqrt(mean((y_pred_lasso - y_test)^2))
-print(paste("RMSE on test set (lambda.1se):", round(rmse_lasso, 4)))
-
-```
-
-
-```{r}
 ridge_cv <- cv.glmnet(x, y, alpha = 0, standardize = TRUE)
 
 ridge_cv$lambda.min
@@ -305,10 +279,37 @@ plot(gam_hypertension_interact, shade = TRUE)
 # Model Training
 
 ```{r}
+x <- model.matrix(log_antibody ~ ., data = dat1)[, -1]
+y <- dat1$log_antibody
+
+cv.lasso <- cv.glmnet(x, y, 
+                      alpha = 1, 
+                      lambda = exp(seq(6, -5, length = 100)))
+
+
+lasso_coef <- coef(cv.lasso, s = "lambda.min")
+print(lasso_coef)
+
+plot(cv.lasso)
+```
+
+```{r}
+x_test <- model.matrix(log_antibody ~ ., data = dat2)[, -1]
+
+y_test <- dat2$log_antibody
+
+y_pred_lasso <- predict(cv.lasso, newx = x_test, s = "lambda.1se")
+
+rmse_lasso <- sqrt(mean((y_pred_lasso - y_test)^2))
+print(paste("RMSE on test set (lambda.1se):", round(rmse_lasso, 4)))
+```
+
+```{r}
 ctrl1 <- trainControl(method = "cv", number = 10)
 
 train_y <- dat1$log_antibody
-train_x <- dat1[, -which(names(dat1) == "log_antibody")]
+train_x <- dat1 %>%
+  select(-log_antibody)
 ```
 
 
@@ -316,7 +317,6 @@ train_x <- dat1[, -which(names(dat1) == "log_antibody")]
 set.seed(2)
 gam.fit <- train(train_x, train_y,
                  method = "gam",
-                 # tuneGrid = data.frame(method = "GCV.Cp", select = c(TRUE,FALSE)),
                  trControl = ctrl1)
 
 gam.fit$bestTune
@@ -339,6 +339,15 @@ ggplot(mars.fit)
 mars.fit$bestTune
 
 coef(mars.fit$finalModel) 
+
+p1 <- pdp::partial(mars.fit, pred.var = c("bmi"), grid.resolution = 10) |> autoplot()
+p1
+p2 <- pdp::partial(mars.fit, pred.var = c("bmi", "age"), 
+                   grid.resolution = 10) |>
+      pdp::plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE, 
+                       screen = list(z = 20, x = -60))
+
+gridExtra::grid.arrange(p1, p2, ncol = 2)
 ```
 
 ```{r}
@@ -352,11 +361,11 @@ bwplot(resamp, metric = "RMSE")
 mars.pred <- predict(mars.fit, newdata = dat2)
 # test RMSE
 mars_test_rmse = sqrt(mean((mars.pred - dat2[, "log_antibody"])^2))
-mars_test_rmse
+print(paste("RMSE on test set (MARS):", round(mars_test_rmse, 4)))
 
 gam.pred <- predict(gam.fit, newdata = dat2)
 # test RMSE
 gam_test_rmse = sqrt(mean((gam.pred - dat2[, "log_antibody"])^2))
-gam_test_rmse
+print(paste("RMSE on test set (GAM):", round(gam_test_rmse, 4)))
 ```
 

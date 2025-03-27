@@ -127,6 +127,7 @@ for (var in continuous_vars) {
 
 ```
 
+
 ```{r}
 # categorical data
 categorical_vars <- c("gender", "race", "smoking", "diabetes", "hypertension")
@@ -150,8 +151,44 @@ dat_cont <- dat1[ , continuous_vars]
 cor_matrix <- cor(dat_cont, use = "complete.obs", method = "pearson")
 
 print(round(cor_matrix, 2))
+```
+
+```{r}
+library(car)
+
+vif_model <- lm(log_antibody ~ age + gender + smoking + height + weight + bmi + 
+                diabetes + hypertension + SBP + LDL + time, data = dat1)
+
+vif(vif_model)
+```
+
+```{r}
+# 找出所有因子变量中，只有一个水平的列名
+drop_vars <- sapply(dat1, function(col) is.factor(col) && nlevels(col) < 2)
+drop_names <- names(dat1)[drop_vars]
+
+# 打印出来看一下（比如可能是 diabetes 或 hypertension）
+print(drop_names)
+
+# 创建模型矩阵时排除这些变量
+x <- model.matrix(log_antibody ~ . - id - log_antibody - dataset - 
+                    diabetes - hypertension, data = dat1)[, -1]
+
+y <- dat1$log_antibody
+
+# LASSO 拟合
+library(glmnet)
+set.seed(42)
+cv_lasso <- cv.glmnet(x, y, alpha = 1)
+
+# 查看模型
+plot(cv_lasso)
+coef(cv_lasso, s = "lambda.min")
+
 
 ```
+
+
 
 ```{r}
 cor_melt <- melt(cor_matrix)

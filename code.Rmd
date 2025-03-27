@@ -51,6 +51,12 @@ ggplot(continuous_var_long, aes(x = variable, y = value)) +
   theme_minimal() +
   labs(title = "Boxplots of Continuous Variables")
 
+ggplot(continuous_var_long, aes(x = value)) +
+  geom_density(fill = "lightblue", alpha = 0.6) +
+  facet_wrap(~variable, scales = "free", ncol = 3) +
+  theme_minimal() +
+  labs(title = "Density Plots of Continuous Variables", x = "Value", y = "Density")
+
 # Categorical:
 summary(continuous_var)
 # bar plots
@@ -65,7 +71,7 @@ ggplot(categorical_var_long, aes(x = value)) +
 ```
 According to the box plot for continuous variables:
 
-- `Age`, `BMI`, and `SBP` appear reasonably normally distributed, with expected ranges for an adult population; `LDL` cholesterol and `time` since vaccination show a wider range and some outliers, which may impact linear models.
+- `Age`, `BMI`, and `SBP` appear reasonably normally distributed, with expected ranges for an adult population; `LDL` cholesterol and `time` since vaccination show a wider range, right-skewness and some outliers, which may impact linear models.
 
 - `log_antibody` (response) appears fairly symmetrical, which supports its use as a continuous response in linear or GAM models.
 
@@ -106,26 +112,21 @@ ggplot(dat1, aes(x = log_antibody)) +
 
 
 ```{r}
-categorical_vars <- c("gender", "race", "smoking", "diabetes", "hypertension")
-continuous_vars <- c("age", "height", "weight", "bmi", "SBP", "LDL", "time")
-```
-
-
-```{r}
 # continous variable
-continuous_vars <- c("age", "height", "weight", "bmi", "SBP", "LDL", "time")
+continuous_var_long <- dat1 %>%
+  select(age, height, weight, bmi, SBP, LDL, time, log_antibody) %>%
+  tidyr::pivot_longer(cols = -log_antibody, names_to = "variable", values_to = "value")
 
-for (var in continuous_vars) {
-  corr <- cor(dat1[[var]], dat1$log_antibody, use = "complete.obs")
-  p <- ggplot(dat1, aes_string(x = var, y = "log_antibody")) +
-    geom_point(alpha = 0.6) +
-    geom_smooth(method = "lm", se = FALSE, color = "blue") +
-    ggtitle(paste("Scatterplot of", var, "\nCorrelation:", round(corr, 3))) +
-    theme_minimal()
-  print(p)
-}
-
+# Scatterplots with smoothing lines
+ggplot(continuous_var_long, aes(x = value, y = log_antibody)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "loess", color = "blue") +
+  facet_wrap(~variable, scales = "free", ncol = 3) +
+  theme_minimal() +
+  labs(title = "Continuous Predictors vs. log_antibody")
 ```
+Usin LOESS method, we observe linearity between predictors and the response. The plot shows that `bmi`, `time`, and `weight` has clear non linear trend against  resopnse `log_antibody`, indicating potential need to use GAM or non linear model.
+
 
 ```{r}
 # categorical data
@@ -144,7 +145,8 @@ for (var in categorical_vars) {
 ```
 
 ```{r}
-dat_cont <- dat1[ , continuous_vars]
+continous_vars <- c("age", "height", "weight", "bmi", "SBP", "LDL", "time", "log_antibody")
+dat_cont <- dat1[ , continous_vars]
 
 # coefficient matrix
 cor_matrix <- cor(dat_cont, use = "complete.obs", method = "pearson")

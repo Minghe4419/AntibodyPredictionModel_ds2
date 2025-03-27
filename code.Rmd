@@ -142,7 +142,7 @@ Using LOESS method, we observe linearity between predictors and the response. Th
 ```{r}
 # categorical data
 categorical_name <- c("gender", "race", "smoking", "diabetes", "hypertension")
-dat1[categorical_name] <- lapply(dat1[categorical_vars], factor)
+dat1[categorical_name] <- lapply(dat1[categorical_name], factor)
 
 for (name in categorical_name) {
   p <- ggplot(dat1, aes_string(x = var, y = "log_antibody", fill = var)) +

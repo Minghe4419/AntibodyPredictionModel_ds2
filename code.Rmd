@@ -229,6 +229,7 @@ lasso_cv$lambda.min
 lasso_coef <- coef(lasso_cv, s = "lambda.min")
 print(lasso_coef)
 
+plot(lasso_cv)
 ```
 
 

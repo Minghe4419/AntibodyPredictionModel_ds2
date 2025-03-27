@@ -228,6 +228,19 @@ plot(lasso_cv)
 
 
 ```{r}
+x_test <- model.matrix(log_antibody ~ ., data = dat2)[, -1]
+
+y_test <- dat2$log_antibody
+
+y_pred_lasso <- predict(lasso_cv, newx = x_test, s = "lambda.1se")
+
+rmse_lasso <- sqrt(mean((y_pred_lasso - y_test)^2))
+print(paste("RMSE on test set (lambda.1se):", round(rmse_lasso, 4)))
+
+```
+
+
+```{r}
 ridge_cv <- cv.glmnet(x, y, alpha = 0, standardize = TRUE)
 
 ridge_cv$lambda.min

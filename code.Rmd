@@ -174,8 +174,6 @@ ggplot(cor_melt, aes(Var1, Var2, fill = value)) +
 
 ```{r}
 library(caret) 
-library(tidymodels)
-library(splines)
 library(mgcv)
 library(pdp)
 library(earth)
@@ -225,4 +223,3 @@ bwplot(resamples(list(mars = mars.fit,
                  metric = "RMSE")
 ```
 
- 

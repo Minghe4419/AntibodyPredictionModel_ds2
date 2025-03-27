@@ -145,13 +145,14 @@ categorical_name <- c("gender", "race", "smoking", "diabetes", "hypertension")
 dat1[categorical_name] <- lapply(dat1[categorical_name], factor)
 
 for (name in categorical_name) {
-  p <- ggplot(dat1, aes_string(x = var, y = "log_antibody", fill = var)) +
+  p <- ggplot(dat1, aes_string(x = name, y = "log_antibody", fill = name)) +
     geom_boxplot() +
-    ggtitle(paste("Boxplot of log_antibody by", var)) +
+    ggtitle(paste("Boxplot of log_antibody by", name)) +
     theme_minimal() +
     theme(legend.position = "none")
   print(p)
 }
+
 
 ```
 
@@ -184,10 +185,10 @@ ggplot(cor_melt, aes(Var1, Var2, fill = value)) +
 ```
 
 ```{r}
-for (i in 1:(length(categorical_vars)-1)) {
-  for (j in (i+1):length(categorical_vars)) {
-    var1 <- categorical_vars[i]
-    var2 <- categorical_vars[j]
+for (i in 1:(length(categorical_name)-1)) {
+  for (j in (i+1):length(categorical_name)) {
+    var1 <- categorical_name[i]
+    var2 <- categorical_name[j]
     cat("\nContingency Table:", var1, "vs", var2, "\n")
     tab <- table(dat1[[var1]], dat1[[var2]])
     print(tab)

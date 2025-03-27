@@ -156,43 +156,6 @@ print(round(cor_matrix, 2))
 ```
 
 ```{r}
-library(car)
-
-vif_model <- lm(log_antibody ~ age + gender + smoking + height + weight + bmi + 
-                diabetes + hypertension + SBP + LDL + time, data = dat1)
-
-vif(vif_model)
-```
-
-```{r}
-# 找出所有因子变量中，只有一个水平的列名
-drop_vars <- sapply(dat1, function(col) is.factor(col) && nlevels(col) < 2)
-drop_names <- names(dat1)[drop_vars]
-
-# 打印出来看一下（比如可能是 diabetes 或 hypertension）
-print(drop_names)
-
-# 创建模型矩阵时排除这些变量
-x <- model.matrix(log_antibody ~ . - id - log_antibody - dataset - 
-                    diabetes - hypertension, data = dat1)[, -1]
-
-y <- dat1$log_antibody
-
-# LASSO 拟合
-library(glmnet)
-set.seed(42)
-cv_lasso <- cv.glmnet(x, y, alpha = 1)
-
-# 查看模型
-plot(cv_lasso)
-coef(cv_lasso, s = "lambda.min")
-
-
-```
-
-
-
-```{r}
 cor_melt <- melt(cor_matrix)
 
 ggplot(cor_melt, aes(Var1, Var2, fill = value)) +
@@ -224,6 +187,63 @@ for (i in 1:(length(categorical_vars)-1)) {
 }
 
 ```
+
+```{r}
+library(car)
+
+vif_model <- lm(log_antibody ~ age + gender + smoking + height + weight + bmi + 
+                diabetes + hypertension + SBP + LDL + time, data = dat1)
+
+vif(vif_model)
+```
+
+```{r}
+# 合并所有变量（不包括 ID、dataset）
+model_data <- dat1 %>%
+  select(log_antibody, age, height, weight, bmi, SBP, LDL, time,
+         gender, race, smoking, diabetes, hypertension) %>%
+  mutate(
+    gender = factor(gender, levels = c(0, 1), labels = c("Female", "Male")),
+    diabetes = factor(diabetes, levels = c(0, 1), labels = c("No", "Yes")),
+    hypertension = factor(hypertension, levels = c(0, 1), labels = c("No", "Yes"))
+  )
+
+# 构建设计矩阵（去掉截距列）
+x <- model.matrix(log_antibody ~ ., data = model_data)[, -1]
+y <- model_data$log_antibody
+
+
+```
+
+```{r}
+library(glmnet)
+
+# LASSO 回归（alpha=1）
+lasso_cv <- cv.glmnet(x, y, alpha = 1, standardize = TRUE)
+
+# 最佳 lambda
+lasso_cv$lambda.min
+
+# 对应的系数
+lasso_coef <- coef(lasso_cv, s = "lambda.min")
+print(lasso_coef)
+
+```
+
+
+```{r}
+# Ridge 回归（alpha=0）
+ridge_cv <- cv.glmnet(x, y, alpha = 0, standardize = TRUE)
+
+# 最佳 lambda
+ridge_cv$lambda.min
+
+# 对应的系数
+ridge_coef <- coef(ridge_cv, s = "lambda.min")
+print(ridge_coef)
+
+```
+
 
 
 # Model Training

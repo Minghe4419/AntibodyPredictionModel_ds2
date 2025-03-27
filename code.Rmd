@@ -1,0 +1,28 @@
+---
+title: "Build Prediction Model"
+author: "Minghe Wang"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+# Exploratory Data Analysis
+
+```{r data loading}
+load("./data/dat1.RData")
+load("./data/dat2.RData")
+
+# variable summary
+summary(dat1)
+summary(dat2)
+# no missing data
+all(is.na(dat1))
+all(is.na(dat2))
+```
+
+
+# Model Training

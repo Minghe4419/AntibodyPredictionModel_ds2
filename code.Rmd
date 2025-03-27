@@ -27,6 +27,11 @@ str(dat1)
 ## Univariate analysis(continous & categorical)
 
 ```{r EDA_univar}
+dat1 <- dat1 %>% 
+  select(-id)
+
+dat2 <- dat2 %>% 
+  select(-id)
 continuous_var <- dat1 %>% 
   select(age, height, weight, bmi, SBP, LDL, time, log_antibody)
 
@@ -125,7 +130,8 @@ ggplot(continuous_var_long, aes(x = value, y = log_antibody)) +
   theme_minimal() +
   labs(title = "Continuous Predictors vs. log_antibody")
 ```
-Usin LOESS method, we observe linearity between predictors and the response. The plot shows that `bmi`, `time`, and `weight` has clear non linear trend against  resopnse `log_antibody`, indicating potential need to use GAM or non linear model.
+
+Using LOESS method, we observe linearity between predictors and the response. The plot shows that `bmi`, `time`, and `weight` has clear non linear trend against  resopnse `log_antibody`, indicating potential need to use GAM or non linear model.
 
 
 ```{r}
@@ -143,6 +149,8 @@ for (var in categorical_vars) {
 }
 
 ```
+
+## Correlation Analysis
 
 ```{r}
 continous_vars <- c("age", "height", "weight", "bmi", "SBP", "LDL", "time", "log_antibody")
@@ -188,6 +196,8 @@ for (i in 1:(length(categorical_vars)-1)) {
 
 ```
 
+## Model Selection
+
 ```{r}
 # VIF
 library(car)
@@ -199,7 +209,7 @@ vif(lm_full)
 ```
 
 ```{r}
-# 合并所有变量（不包括 ID、dataset）
+#
 model_data <- dat1 %>%
   select(log_antibody, age, height, weight, bmi, SBP, LDL, time,
          gender, race, smoking, diabetes, hypertension) %>%
@@ -209,7 +219,7 @@ model_data <- dat1 %>%
     hypertension = factor(hypertension, levels = c(0, 1), labels = c("No", "Yes"))
   )
 
-# 构建设计矩阵（去掉截距列）
+
 x <- model.matrix(log_antibody ~ ., data = model_data)[, -1]
 y <- model_data$log_antibody
 
@@ -219,13 +229,13 @@ y <- model_data$log_antibody
 ```{r}
 library(glmnet)
 
-# LASSO 回归（alpha=1）
+
 lasso_cv <- cv.glmnet(x, y, alpha = 1, standardize = TRUE)
 
-# 最佳 lambda
+
 lasso_cv$lambda.min
 
-# 对应的系数
+
 lasso_coef <- coef(lasso_cv, s = "lambda.min")
 print(lasso_coef)
 
@@ -234,18 +244,31 @@ plot(lasso_cv)
 
 
 ```{r}
-# Ridge 回归（alpha=0）
+
 ridge_cv <- cv.glmnet(x, y, alpha = 0, standardize = TRUE)
 
-# 最佳 lambda
+
 ridge_cv$lambda.min
 
-# 对应的系数
+
 ridge_coef <- coef(ridge_cv, s = "lambda.min")
 print(ridge_coef)
 
 ```
 
+## Interaction Analysis
+
+```{r}
+dat1_ageGroup <- dat1 %>%
+  mutate(
+    age_group = cut(age, breaks = c(30, 50, 60, 70, 90),
+                    labels = c("30–49", "50–59", "60–69", "70+")),
+    gender = factor(gender, labels = c("Female", "Male")),
+    diabetes = factor(diabetes, labels = c("No", "Yes")),
+    hypertension = factor(hypertension, labels = c("No", "Yes"))
+  )
+
+```
 
 
 # Model Training

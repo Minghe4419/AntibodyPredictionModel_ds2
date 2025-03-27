@@ -1,6 +1,6 @@
 ---
 title: "Build Prediction Model"
-author: "Minghe Wang"
+author: "Minghe Wang, Zebang Zhang(zz3309)"
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
@@ -169,6 +169,23 @@ ggplot(cor_melt, aes(Var1, Var2, fill = value)) +
   ggtitle("Correlation Heatmap of Continuous Variables")
 ```
 
+```{r}
+categorical_vars <- c("gender", "race", "smoking", "diabetes", "hypertension")
+
+for (i in 1:(length(categorical_vars)-1)) {
+  for (j in (i+1):length(categorical_vars)) {
+    var1 <- categorical_vars[i]
+    var2 <- categorical_vars[j]
+    cat("\nContingency Table:", var1, "vs", var2, "\n")
+    tab <- table(dat1[[var1]], dat1[[var2]])
+    print(tab)
+    cat("Chi-squared Test:\n")
+    print(chisq.test(tab))
+  }
+}
+
+```
+
 
 # Model Training
 
@@ -221,5 +238,16 @@ coef(mars.fit$finalModel)
 bwplot(resamples(list(mars = mars.fit,
                       gam = gam.fit)), 
                  metric = "RMSE")
+```
+
+```{r}
+mars.pred <- predict(mars.fit, newdata = dat2)
+# test RMSE
+mars_test_rmse = sqrt(mean((mars.pred - dat2[, "log_antibody"])^2))
+
+
+gam.pred <- predict(gam.fit, newdata = dat2)
+# test RMSE
+gam_test_rmse = sqrt(mean((gam.pred - dat2[, "log_antibody"])^2))
 ```
 

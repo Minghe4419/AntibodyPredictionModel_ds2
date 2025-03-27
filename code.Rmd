@@ -24,5 +24,85 @@ all(is.na(dat1))
 all(is.na(dat2))
 ```
 
+```{r}
+ggplot(dat1, aes(x = log_antibody)) +
+  geom_density(fill = "skyblue", alpha = 0.5) +
+  ggtitle("Density plot of log_antibody") +
+  xlab("log_antibody") +
+  theme_minimal()
+
+ggplot(dat1, aes(x = log_antibody)) +
+  geom_histogram(bins = 30, fill = "lightgreen", color = "black", alpha = 0.7) +
+  ggtitle("Histogram of log_antibody") +
+  xlab("log_antibody") +
+  theme_minimal()
+
+```
+
+
+```{r}
+categorical_vars <- c("gender", "race", "smoking", "diabetes", "hypertension")
+continuous_vars <- c("age", "height", "weight", "bmi", "SBP", "LDL", "time")
+```
+
+
+```{r}
+# continous variable
+continuous_vars <- c("age", "height", "weight", "bmi", "SBP", "LDL", "time")
+
+for (var in continuous_vars) {
+  corr <- cor(dat1[[var]], dat1$log_antibody, use = "complete.obs")
+  p <- ggplot(dat1, aes_string(x = var, y = "log_antibody")) +
+    geom_point(alpha = 0.6) +
+    geom_smooth(method = "lm", se = FALSE, color = "blue") +
+    ggtitle(paste("Scatterplot of", var, "\nCorrelation:", round(corr, 3))) +
+    theme_minimal()
+  print(p)
+}
+
+```
+
+```{r}
+# categorical data
+categorical_vars <- c("gender", "race", "smoking", "diabetes", "hypertension")
+dat1[categorical_vars] <- lapply(dat1[categorical_vars], factor)
+
+for (var in categorical_vars) {
+  p <- ggplot(dat1, aes_string(x = var, y = "log_antibody", fill = var)) +
+    geom_boxplot() +
+    ggtitle(paste("Boxplot of log_antibody by", var)) +
+    theme_minimal() +
+    theme(legend.position = "none")
+  print(p)
+}
+
+```
+
+```{r}
+dat_cont <- dat1[ , continuous_vars]
+
+# coefficient matrix
+cor_matrix <- cor(dat_cont, use = "complete.obs", method = "pearson")
+
+print(round(cor_matrix, 2))
+
+```
+
+```{r}
+cor_melt <- melt(cor_matrix)
+
+ggplot(cor_melt, aes(Var1, Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+                       midpoint = 0, limit = c(-1, 1), space = "Lab",
+                       name = "Pearson\nCorrelation") +
+  geom_text(aes(label = round(value, 2)), color = "black", size = 4) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   size = 12, hjust = 1)) +
+  coord_fixed() +
+  ggtitle("Correlation Heatmap of Continuous Variables")
+```
+
 
 # Model Training

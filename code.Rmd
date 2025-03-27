@@ -188,6 +188,64 @@ for (i in 1:(length(categorical_vars)-1)) {
 
 ```
 
+```{r}
+# VIF
+library(car)
+
+lm_full <- lm(log_antibody ~ age + gender + smoking + height + weight + bmi + 
+                diabetes + hypertension + SBP + LDL + time, data = dat1)
+
+vif(lm_full)
+```
+
+```{r}
+# 合并所有变量（不包括 ID、dataset）
+model_data <- dat1 %>%
+  select(log_antibody, age, height, weight, bmi, SBP, LDL, time,
+         gender, race, smoking, diabetes, hypertension) %>%
+  mutate(
+    gender = factor(gender, levels = c(0, 1), labels = c("Female", "Male")),
+    diabetes = factor(diabetes, levels = c(0, 1), labels = c("No", "Yes")),
+    hypertension = factor(hypertension, levels = c(0, 1), labels = c("No", "Yes"))
+  )
+
+# 构建设计矩阵（去掉截距列）
+x <- model.matrix(log_antibody ~ ., data = model_data)[, -1]
+y <- model_data$log_antibody
+
+```
+
+
+```{r}
+library(glmnet)
+
+# LASSO 回归（alpha=1）
+lasso_cv <- cv.glmnet(x, y, alpha = 1, standardize = TRUE)
+
+# 最佳 lambda
+lasso_cv$lambda.min
+
+# 对应的系数
+lasso_coef <- coef(lasso_cv, s = "lambda.min")
+print(lasso_coef)
+
+```
+
+
+```{r}
+# Ridge 回归（alpha=0）
+ridge_cv <- cv.glmnet(x, y, alpha = 0, standardize = TRUE)
+
+# 最佳 lambda
+ridge_cv$lambda.min
+
+# 对应的系数
+ridge_coef <- coef(ridge_cv, s = "lambda.min")
+print(ridge_coef)
+
+```
+
+
 
 # Model Training
 

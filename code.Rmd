@@ -300,6 +300,8 @@ summary(gam.fit$finalModel)
 plot(gam.fit$finalModel)
 ```
 
+We fit a Generalized Additive Model (GAM) to examine both linear and nonlinear relationships between antibody levels and a set of demographic, clinical, and time-related predictors. The model achieved an adjusted R² of 0.22 and explained 22.4% of the deviance, indicating a moderate fit that captures key patterns in the data. Among the categorical predictors, male gender and current smoking were significantly associated with lower antibody responses, while race, diabetes, and hypertension did not show statistically significant effects. Several continuous variables exhibited nonlinear effects: notably, BMI and time since vaccination demonstrated strong and statistically significant nonlinear associations with antibody levels. Antibody responses peaked at a moderate BMI and declined at higher levels, while time since vaccination showed a characteristic waning immunity curve, with predicted antibody levels decreasing nonlinearly over time. These findings support the relevance of GAM for capturing complex decay behavior in vaccine-induced immune responses against both demographic and clinical factors.
+
 ```{r}
 # MARS model
 mars_grid <- expand.grid(degree = 1:3, 

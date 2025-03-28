@@ -1,11 +1,11 @@
 ---
-title: "Build Prediction Model"
-author: "Minghe Wang, Zebang Zhang(zz3309)"
+title: "Midterm Project"
+author: "Minghe Wang (mw3845), Zebang Zhang (zz3309), Xuanyu Guo (xg2451)"
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE, warning=FALSE, message=FALSE}
+```{r setup, include=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(reshape2)
@@ -15,6 +15,7 @@ library(caret)
 library(mgcv)
 library(pdp)
 library(earth)
+library(gridExtra)
 ```
 
 # Exploratory Data Analysis
@@ -28,35 +29,48 @@ all(is.na(dat1))
 all(is.na(dat2))
 
 ifelse(all(names(dat1) == names(dat2)), "train and test data have same structure", "train and test data have different structure")
+
 str(dat1)
 ```
 
 ```{r}
+# The 'id' column has no actual meaning, so we remove it.
 dat1 <- dat1 %>% 
   select(-id)
 
 dat2 <- dat2 %>% 
   select(-id)
+
+# Convert categorical variables to labeled factors
+convert_factors <- function(df) {
+  df %>%
+    mutate(
+      gender = factor(gender, levels = c(0, 1), labels = c("Female", "Male")),
+      race = factor(race, levels = c(1, 2, 3, 4), labels = c("White", "Asian", "Black", "Hispanic")),
+      smoking = factor(smoking, levels = c(0, 1, 2), labels = c("Never", "Former", "Current")),
+      diabetes = factor(diabetes, levels = c(0, 1), labels = c("No", "Yes")),
+      hypertension = factor(hypertension, levels = c(0, 1), labels = c("No", "Yes"))
+    )
+}
+
+dat1 <- convert_factors(dat1)
+dat2 <- convert_factors(dat2)
 ```
 
 ## Univariate analysis(continous & categorical)
 
-```{r EDA_univar}
+```{r}
 continuous_var <- dat1 %>% 
-  select(age, height, weight, bmi, SBP, LDL, time, log_antibody)
+  select(age, height, weight, bmi, SBP, LDL, time)
 
 categorical_var <- dat1 %>% 
-  select(gender, race, smoking, diabetes, hypertension) %>% 
-  mutate(
-    # Convert binary variables to factors with labels
-    gender = factor(gender, levels = c(0, 1), labels = c("Female", "Male")),
-    diabetes = factor(diabetes, levels = c(0, 1), labels = c("No", "Yes")),
-    hypertension = factor(hypertension, levels = c(0, 1), labels = c("No", "Yes"))
-  )
+  select(gender, race, smoking, diabetes, hypertension)
 
-# Continuous:
+# ---- Continuous Variables ----
+# summary
 summary(continuous_var)
-# Boxplots
+
+# boxplots
 continuous_var_long <- continuous_var %>%
   tidyr::pivot_longer(cols = everything(), names_to = "variable", values_to = "value")
 
@@ -66,14 +80,17 @@ ggplot(continuous_var_long, aes(x = variable, y = value)) +
   theme_minimal() +
   labs(title = "Boxplots of Continuous Variables")
 
+# density plots
 ggplot(continuous_var_long, aes(x = value)) +
   geom_density(fill = "lightblue", alpha = 0.6) +
   facet_wrap(~variable, scales = "free", ncol = 3) +
   theme_minimal() +
   labs(title = "Density Plots of Continuous Variables", x = "Value", y = "Density")
 
-# Categorical:
-summary(continuous_var)
+# ---- Categorical Variables ----
+# summary
+summary(categorical_var)
+
 # bar plots
 categorical_var_long <- categorical_var %>%
   tidyr::pivot_longer(cols = everything(), names_to = "variable", values_to = "value")
@@ -83,14 +100,12 @@ ggplot(categorical_var_long, aes(x = value)) +
   facet_wrap(~variable, scales = "free", ncol = 3) +
   theme_minimal() +
   labs(title = "Bar Plots of Categorical Variables", x = "Category", y = "Count")
+
 ```
+
 According to the box plot for continuous variables:
 
 - `Age`, `BMI`, and `SBP` appear reasonably normally distributed, with expected ranges for an adult population; `LDL` cholesterol and `time` since vaccination show a wider range, right-skewness and some outliers, which may impact linear models.
-
-- `log_antibody` (response) appears fairly symmetrical, which supports its use as a continuous response in linear or GAM models.
-
-- Correlations and non-linear trends should be assessed in the next step to guide model form.
 
 According to the bar plot for categorical variables:
 
@@ -106,27 +121,44 @@ According to the bar plot for categorical variables:
 
 - Demographically, the population is balanced by gender but skewed by race and smoking status.
 
-Overall, we believe the response variable `log_antibody` is well-behaved, and further correlation analysis(eg. bivariate) is needed.
-
-
-
 ```{r}
-ggplot(dat1, aes(x = log_antibody)) +
+# response variable `log_antibody`
+
+# Density plot
+p1 <- ggplot(dat1, aes(x = log_antibody)) +
   geom_density(fill = "skyblue", alpha = 0.5) +
-  ggtitle("Density plot of log_antibody") +
+  ggtitle("Density Plot of log_antibody") +
   xlab("log_antibody") +
   theme_minimal()
 
-ggplot(dat1, aes(x = log_antibody)) +
+# Histogram
+p2 <- ggplot(dat1, aes(x = log_antibody)) +
   geom_histogram(bins = 30, fill = "lightgreen", color = "black", alpha = 0.7) +
   ggtitle("Histogram of log_antibody") +
   xlab("log_antibody") +
   theme_minimal()
+
+# Boxplot
+p3 <- ggplot(dat1, aes(y = log_antibody)) +
+  geom_boxplot(fill = "orange", alpha = 0.6) +
+  ggtitle("Boxplot of log_antibody") +
+  ylab("log_antibody") +
+  theme_minimal()
+
+grid.arrange(p1, p2, p3, ncol = 3)
 ```
 
+`log_antibody` (response) appears fairly symmetrical, which supports its use as a continuous response in linear or GAM models.
+
+Overall, we believe the response variable `log_antibody` is well-behaved, and further correlation analysis(eg. bivariate) is needed.
+
+Next, we assess correlations and non-linear trends to guide model form.
+
+## Correlation Analysis
+
+We first analyze the relationship between log_antibody (response variable) and continuous variables & correlations among continuous variables themselves.
 
 ```{r}
-# continous variable
 continuous_var_long <- dat1 %>%
   select(age, height, weight, bmi, SBP, LDL, time, log_antibody) %>%
   tidyr::pivot_longer(cols = -log_antibody, names_to = "variable", values_to = "value")
@@ -142,33 +174,12 @@ ggplot(continuous_var_long, aes(x = value, y = log_antibody)) +
 
 Using LOESS method, we observe linearity between predictors and the response. The plot shows that `bmi`, `time`, and `weight` has clear non linear trend against  resopnse `log_antibody`, indicating potential need to use GAM or non linear model.
 
-
-```{r}
-# categorical data
-categorical_name <- c("gender", "race", "smoking", "diabetes", "hypertension")
-dat1[categorical_name] <- lapply(dat1[categorical_name], factor)
-
-for (name in categorical_name) {
-  p <- ggplot(dat1, aes_string(x = name, y = "log_antibody", fill = name)) +
-    geom_boxplot() +
-    ggtitle(paste("Boxplot of log_antibody by", name)) +
-    theme_minimal() +
-    theme(legend.position = "none")
-  print(p)
-}
-
-
-```
-
-## Correlation Analysis
-
 ```{r}
 continous_name <- c("age", "height", "weight", "bmi", "SBP", "LDL", "time", "log_antibody")
 dat_cont <- dat1[ , continous_name]
 
 # coefficient matrix
 cor_matrix <- cor(dat_cont, use = "complete.obs", method = "pearson")
-
 print(round(cor_matrix, 2))
 ```
 
@@ -188,22 +199,7 @@ ggplot(cor_melt, aes(Var1, Var2, fill = value)) +
   ggtitle("Correlation Heatmap of Continuous Variables")
 ```
 
-```{r}
-for (i in 1:(length(categorical_name)-1)) {
-  for (j in (i+1):length(categorical_name)) {
-    var1 <- categorical_name[i]
-    var2 <- categorical_name[j]
-    cat("\nContingency Table:", var1, "vs", var2, "\n")
-    tab <- table(dat1[[var1]], dat1[[var2]])
-    print(tab)
-    cat("Chi-squared Test:\n")
-    print(chisq.test(tab))
-  }
-}
-
-```
-
-## Model Selection
+From the matrix and plot, we can see that the Pearson correlation coefficient between bmi and weight, bmi and height exceed 0.5, indicating that multicollinearity may exist.
 
 ```{r}
 # VIF
@@ -213,15 +209,24 @@ lm_full <- lm(log_antibody ~ age + gender + smoking + height + weight + bmi +
 vif(lm_full)
 ```
 
+The VIF of bmi, weight and height exceed 10, indicating serious multicollinearity among these variables. Since BMI is a function of weight and height, it is recommended to retain only one of them (e.g., BMI) in the model to avoid redundancy and unstable coefficient estimates.
 
-```{r}
-ridge_cv <- cv.glmnet(x, y, alpha = 0, standardize = TRUE)
+Then for categorical variable, generate boxplots to visualize the distribution of log_antibody across levels of each categorical variable.
 
-ridge_cv$lambda.min
+```{r warning=FALSE}
+categorical_name <- c("gender", "race", "smoking", "diabetes", "hypertension")
 
-ridge_coef <- coef(ridge_cv, s = "lambda.min")
-print(ridge_coef)
+for (name in categorical_name) {
+  p <- ggplot(dat1, aes_string(x = name, y = "log_antibody", fill = name)) +
+    geom_boxplot() +
+    ggtitle(paste("Boxplot of log_antibody by", name)) +
+    theme_minimal() +
+    theme(legend.position = "none")
+  print(p)
+}
 ```
+
+The boxplots suggest that the distribution of log_antibody does not differ substantially across the categories of each categorical variable, indicating limited evidence of strong group-level effects.
 
 ## Interaction Analysis
 
@@ -275,36 +280,56 @@ plot(gam_diabetes_interact, shade = TRUE)
 plot(gam_hypertension_interact, shade = TRUE)
 ```
 
-
 # Model Training
+
+We first fit a Lasso regression model to select important predictors and address multicollinearity. This is particularly useful here, as previous VIF analysis indicated strong multicollinearity among BMI, height, and weight.
 
 ```{r}
 x <- model.matrix(log_antibody ~ ., data = dat1)[, -1]
 y <- dat1$log_antibody
 
+set.seed(2)
 cv.lasso <- cv.glmnet(x, y, 
                       alpha = 1, 
-                      lambda = exp(seq(6, -5, length = 100)))
+                      lambda = exp(seq(-5, 6, length = 100)))
 
+cv.lasso$lambda.min
 
 lasso_coef <- coef(cv.lasso, s = "lambda.min")
-print(lasso_coef)
+lasso_coef
+
+plot_glmnet(cv.lasso$glmnet.fit)
 
 plot(cv.lasso)
 ```
 
+From the coefficients under lambda.min, we can see that height and weight are excluded from the Lasso model and bmi is retained. The lasso model helps solve multicollinearity.
+
 ```{r}
-x_test <- model.matrix(log_antibody ~ ., data = dat2)[, -1]
+y_pred_train <- predict(cv.lasso, newx = x, s = "lambda.min")
 
-y_test <- dat2$log_antibody
+rmse_train <- sqrt(mean((y_pred_train - y)^2))
 
-y_pred_lasso <- predict(cv.lasso, newx = x_test, s = "lambda.1se")
-
-rmse_lasso <- sqrt(mean((y_pred_lasso - y_test)^2))
-print(paste("RMSE on test set (lambda.1se):", round(rmse_lasso, 4)))
+print(paste("RMSE on training set (lambda.min):", round(rmse_train, 4)))
 ```
 
+Then we use the test dataset (dat2) to compute the test RMSE of the lasso model and evaluate model generalizability.
+
 ```{r}
+x_test <- model.matrix(log_antibody ~ ., data = dat2)[, -1]
+y_test <- dat2$log_antibody
+
+y_pred_lasso <- predict(cv.lasso, newx = x_test, s = "lambda.min")
+
+rmse_lasso <- sqrt(mean((y_pred_lasso - y_test)^2))
+
+print(paste("RMSE on test set (lambda.min):", round(rmse_lasso, 4)))
+```
+
+Since Lasso is a linear model that assumes additive and linear relationships between predictors and the outcome, we next explore two nonlinear modeling approaches (GAM and MARS) to capture potential nonlinearities and interaction effects in the data.
+
+```{r}
+# Define trainControl
 ctrl1 <- trainControl(method = "cv", number = 10)
 
 train_y <- dat1$log_antibody
@@ -312,8 +337,8 @@ train_x <- dat1 %>%
   select(-log_antibody)
 ```
 
-
 ```{r}
+# GAM model
 set.seed(2)
 gam.fit <- train(train_x, train_y,
                  method = "gam",
@@ -322,9 +347,12 @@ gam.fit <- train(train_x, train_y,
 gam.fit$bestTune
 
 gam.fit$finalModel
+
+plot(gam.fit$finalModel)
 ```
 
 ```{r}
+# MARS model
 mars_grid <- expand.grid(degree = 1:3, 
                          nprune = 2:15)
 
@@ -339,9 +367,10 @@ ggplot(mars.fit)
 mars.fit$bestTune
 
 coef(mars.fit$finalModel) 
+```
 
+```{r}
 p1 <- pdp::partial(mars.fit, pred.var = c("bmi"), grid.resolution = 10) |> autoplot()
-p1
 p2 <- pdp::partial(mars.fit, pred.var = c("bmi", "age"), 
                    grid.resolution = 10) |>
       pdp::plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE, 
@@ -351,21 +380,41 @@ gridExtra::grid.arrange(p1, p2, ncol = 2)
 ```
 
 ```{r}
+plotmo(mars.fit,
+nresponse = 1,
+degree2 = FALSE,
+varnames = "age")
+```
+
+# Model selection
+
+To select the best model, we can compare the cross-validated metrics of the MARS and GAM models using resampling, this helps evaluate and visualize the relative performance of the two models.
+
+```{r}
 resamp <- resamples(list(mars = mars.fit, gam = gam.fit))
 summary(resamp)
 
 bwplot(resamp, metric = "RMSE")
 ```
 
-```{r}
-mars.pred <- predict(mars.fit, newdata = dat2)
-# test RMSE
-mars_test_rmse = sqrt(mean((mars.pred - dat2[, "log_antibody"])^2))
-print(paste("RMSE on test set (MARS):", round(mars_test_rmse, 4)))
+The distribution of RMSE across cross-validation is also similar, with GAM model showing a slightly lower median RMSE compared to MARS model.  
+Moreover, both models achieve lower average RMSE on the training set (dat1) compared to the Lasso model (Lasso model train RMSE: 0.5518, test RMSE: 0.5749), suggesting better performance. This may be attributed to the presence of nonlinear relationships between the response variable (log_antibody) and some predictors (such as bmi and time), which cannot be effectively captured by the linear structure of Lasso regression.
 
+We should also evaluate the generalizability of the trained MARS and GAM models by computing RMSE on the test set (dat2).
+
+```{r}
+# test RMSE of MARS model
+mars.pred <- predict(mars.fit, newdata = dat2)
+mars_test_rmse = sqrt(mean((mars.pred - dat2[, "log_antibody"])^2))
+print(paste("RMSE on test set (MARS model):", round(mars_test_rmse, 4)))
+
+# test RMSE of GAM model
 gam.pred <- predict(gam.fit, newdata = dat2)
-# test RMSE
 gam_test_rmse = sqrt(mean((gam.pred - dat2[, "log_antibody"])^2))
-print(paste("RMSE on test set (GAM):", round(gam_test_rmse, 4)))
+print(paste("RMSE on test set (GAM model):", round(gam_test_rmse, 4)))
 ```
+
+Both MARS and GAM models show very similar performance in cross-validation, with nearly identical mean RMSE values (0.5283 vs 0.5279).  
+However, on the test set, the MARS model achieves a lower RMSE (0.5328) compared to the GAM model (0.5701), suggesting better generalization.  
+Given this gap in test performance while maintaining comparable training performance, the MARS model appears to be the better choice in this case.
 

@@ -7,139 +7,76 @@ output: pdf_document
 
 # 1. Introduction
 
-Understanding individual variation in antibody response following vaccination is important for optimizing public health strategies and identifying potentially vulnerable populations. In this analysis, we used a dataset of 5,000 participants who received a newly authorized vaccine to explore predictors of log-transformed antibody levels measured via dried blood spot. Our primary objectives were to:
+Understanding variation in antibody response after vaccination is key to identifying individuals who may be less protected. In this study, we analyzed data from 5,000 participants who received a new vaccine to examine how demographic and clinical factors relate to antibody levels. The outcome of interest was log-transformed antibody concentration. We aimed to build predictive models and assess their ability to generalize to new data. Three approaches were compared: LASSO regression, Generalized Additive Models (GAMs), and Multivariate Adaptive Regression Splines (MARS). Each model was trained on one dataset and evaluated on an independent test set to ensure robustness.
 
-1. Describe patterns and associations between predictors and antibody levels.
+# 2. Exploratory Data Analysis (EDA)
 
-2. Develop and evaluate predictive models of antibody response.
+We first verified the structure and completeness of the training (`dat1`) and test (`dat2`) datasets. Both contained 14 variables with no missing values and identical column structures. The outcome variable, `log_antibody`, was continuous and approximately symmetric, making it suitable for linear or semi-parametric modeling.
 
-3. Assess the model's robustness using a new, independent dataset.
+### 2.1 Continuous Variables
 
+Summary statistics and visualizations for continuous predictors (e.g., age, BMI, SBP, LDL, time since vaccination) revealed varied distributions. Age, BMI, and SBP were roughly normal, while LDL and time were right-skewed with some outliers. Scatterplots with LOESS smoothing indicated potential non-linear relationships between BMI, weight, and time with the outcome, suggesting the need for flexible models like GAM or MARS.
 
-# 2. Exploratory Analysis (EDA)
+### 2.2 Categorical Variables
 
-## 2.1 Continuous Variables
+Categorical variables (gender, race, smoking, diabetes, hypertension) were converted to labeled factors. Gender was balanced, but most participants were White and never smokers. Diabetes was uncommon, while hypertension was moderately present. Boxplots showed modest group-level differences in `log_antibody`, with lower levels observed among current smokers and males.
 
-According to the boxplots and density plots of continuous predictors:
+### 2.3 Correlation Analysis
 
-- Age, BMI, and SBP are approximately normally distributed, spanning plausible adult ranges.
-
-- LDL and time since vaccination are right-skewed with wider variability and visible outliers, which could influence linear modeling.
-
-- The log-transformed antibody level (our response variable) appears symmetric and reasonably bell-shaped, supporting its use as a continuous outcome in linear or semi-parametric models.
-
-Scatterplots with LOESS smoothing revealed potential non-linear relationships between predictors such as BMI, time, and weight with the response, suggesting that flexible modeling (e.g., GAM or MARS) may be appropriate.
-
-## 2.2 Categorical Variables
-
-According to the bar plots and boxplots by group:
-
-- Gender is fairly balanced.
-
-- Race distribution is skewed, with a majority identifying as White; minority racial groups are underrepresented.
-
-- Smoking status is skewed toward never smokers.
-
-- Most participants are non-diabetic, while hypertension status shows a more balanced distribution.
-
-Boxplots of log_antibody by each category suggest possible differences, particularly by gender, race, and smoking status, hinting at group-level effects.
-
-## 2.3 Correlation Analysis
-
-- BMI and weight are highly correlated (r > 0.7), indicating redundancy. Multicollinearity diagnostics confirmed this, with high VIF values for height, weight, and BMI in the full linear model.
-
-- log_antibody showed mild inverse correlations with age, BMI, and weight. Associations with LDL, SBP, and time were weak.
-
-- Categorical predictor associations were assessed via chi-squared tests, revealing no major dependencies that would preclude joint inclusion in a model.
+Strong correlations were observed between height, weight, and BMI (Pearson r > 0.7). VIF analysis confirmed multicollinearity among these variables (VIF > 10). Since BMI is both derived from height and weight and more clinically meaningful, we retained BMI and excluded the other two from modeling to improve interpretability and model stability.
 
 # 3. Model Training
 
-To predict log-transformed antibody levels, we compared multiple modeling approaches, including linear regression, penalized regression (LASSO and Ridge), Generalized Additive Models (GAMs), and Multivariate Adaptive Regression Splines (MARS). The training dataset (dat1) was used to fit all models, and performance was evaluated using 10-fold cross-validation.
+To identify key predictors and build a robust predictive model of antibody response, we trained and evaluated three modeling strategies: LASSO regression, Generalized Additive Models (GAMs), and Multivariate Adaptive Regression Splines (MARS). All models were trained on `dat1` using 10-fold cross-validation for hyperparameter tuning. Based on VIF analysis, we excluded height and weight due to multicollinearity and retained BMI as a clinically interpretable composite metric.
 
-## 3.1 Data Preparation
+### 3.1 LASSO Regression
 
-- The outcome variable was log_antibody.
+We began with LASSO regression to reduce dimensionality and mitigate multicollinearity. Using the `glmnet` package with standardized predictors, cross-validation identified an optimal penalty (lambda.min = 0.0067). The final model selected a sparse subset of predictors: age, gender (Male), smoking (Current), BMI, time since vaccination, and race (Hispanic). Notably, both height and weight were excluded by the model, reaffirming the utility of LASSO in handling multicollinearity. The root mean squared error (RMSE) of the LASSO model on the training set was 0.5518, while its performance on the test set yielded an RMSE of 0.5749. These results highlight LASSO’s limitations in capturing complex, non-linear patterns, despite its value for feature selection.
 
-- Predictors included both continuous and categorical variables. Categorical predictors were converted to factors with appropriate labels.
+### 3.2 Generalized Additive Models (GAMs)
 
-- The id variable was excluded.
+To better accommodate potential non-linear effects observed during exploratory analysis, we employed a Generalized Additive Model using the `mgcv` package. The model specification allowed smooth terms for continuous variables including age, SBP, LDL, BMI, time, height, and weight, while categorical variables such as gender, race, smoking, diabetes, and hypertension were modeled linearly. The GAM demonstrated moderate predictive capacity, achieving an adjusted R-squared of 0.22 and explaining 22.4% of the total deviance. Importantly, several smooth terms, including those for BMI and time, were statistically significant, indicating clear non-linear relationships. For instance, antibody levels peaked at moderate BMI values and declined with increasing time post-vaccination, reflecting biological trends of waning immunity. The GAM’s training RMSE was approximately 0.528, with test RMSE increasing to 0.5701, suggesting potential overfitting or sensitivity to shifts in predictor distributions across datasets.
 
-- Due to multicollinearity among height, weight, and BMI, we avoided including all three in the same model unless penalization or dimensionality reduction was applied.
+### 3.3 Multivariate Adaptive Regression Splines (MARS)
 
-## 3.2 Model
-### Model1: LASSO Regression
+Finally, we implemented MARS using the `earth` package, which automatically captures non-linearities and interaction effects via piecewise linear basis functions. A grid search over model complexity parameters identified the optimal configuration with degree = 1 and nine basis functions (nprune = 9). The final model included hinge functions on BMI, age, and time, alongside categorical indicators for gender and smoking. Compared to other models, MARS demonstrated the best balance of flexibility and generalizability, achieving a training RMSE of 0.528 and a test RMSE of 0.5328. The inclusion of threshold-based transformations allowed MARS to capture inflection points—such as a decline in antibody levels beyond a BMI of approximately 27.8 or post-vaccination time beyond 57 days—that were difficult for other models to approximate.
 
-- LASSO regression was implemented using glmnet with alpha = 1.
-
-- Standardization was applied.
-
-- Cross-validation (cv.glmnet) selected the optimal lambda using the 1-SE rule.
-
-- Final model retained age, gender, BMI, and smoking (current) as predictors.
-
-- RMSE on the test dataset (dat2) was approximately 0.58.
-
-### Model2: Ridge Regression
-
-- Ridge regression (alpha = 0) was also fit using glmnet.
-
-- Ridge preserved all predictors but shrank coefficients toward zero.
-
-- Predictive accuracy was similar to LASSO.
-
-### Model 3: Generalized Additive Model (GAM)
-
-- GAM was fit using caret::train with method = "gam" and 10-fold cross-validation.
-
-- The model formula included smoothing splines (s()) for continuous variables (age, BMI, SBP, LDL, time, height, weight) and linear terms for categorical variables (gender, race, smoking, diabetes, hypertension).
-
-- The best tuning parameter (select = TRUE) was chosen automatically.
-
-- GAM achieved a cross-validated RMSE around 0.53 and test RMSE of 0.57.
-
-### Model 4: Multivariate Adaptive Regression Splines (MARS)
-
-- MARS was implemented using earth via caret::train.
-
-- A grid search explored degrees (1–3) and number of pruning terms (2–15).
-
-- 10-fold cross-validation was used to select the optimal configuration: degree = 1, nprune = 9.
-
-- The final model included hinge functions for BMI, time, and age, as well as main effects for gender and smoking.
-
-- MARS achieved the best performance:
-
-  - Training RMSE: ~0.53
-
-  - Test RMSE: ~0.53
+Cross-validation resampling confirmed the similar average performance of MARS and GAM, with nearly identical RMSEs (0.5283 vs. 0.5279). However, the superior test performance of MARS, alongside its interpretability, led us to select it as the final model.
 
 # 4. Results
 
-## 4.1 Final Model Interpretation (MARS)
+The MARS model was selected as the final model due to its superior balance of performance and interpretability.
 
-- Higher BMI and current smoking were associated with lower antibody levels.
+### 4.1 Final Model Interpretation (MARS)
 
-- Older age showed a modest negative effect on response.
+MARS identified key non-linear effects: antibody levels peaked at BMI 23–27 and declined beyond; responses decreased non-linearly after ~57 days post-vaccination and slightly with age (after ~59). Males and current smokers had lower predicted antibody levels. Partial dependence and LOESS plots on `dat2` confirmed these trends.
 
-- The effect of time since vaccination was non-linear, indicating potential antibody waning patterns.
+### 4.2 Performance Metrics
 
-- The model selected only a subset of predictors, improving interpretability.
+| Model | CV RMSE (Training) | Test RMSE (dat2) |
+|-------|--------------------|------------------|
+| MARS  | 0.5283              | 0.5328           |
+| GAM   | 0.5279              | 0.5701           |
+| LASSO | 0.5518              | 0.5749           |
 
-## 4.2 Model Performance
+MARS achieved the lowest RMSE across datasets. Although GAM performed well during training, its test performance dropped, likely due to overfitting or distributional shifts (e.g., time range differences).
 
-- Cross-validated RMSE: ~0.53 (MARS), ~0.53–0.54 (GAM)
+### 4.3 Demographic Effects
 
-- Test RMSE on new dataset (dat2): MARS: 0.53, GAM: 0.57
+MARS predictions on `dat2` showed higher antibody levels in females (10.10 vs 9.83) and lower levels in current smokers (9.80) compared to former and never smokers (9.99). These align with known biological patterns.
 
-The MARS model maintained stable performance on the independent dataset, indicating good generalizability. GAM showed slightly worse test RMSE, suggesting possible overfitting or sensitivity to distributional changes.
+### 4.4 Temporal Trends
+
+In `dat2`, antibody levels declined steadily with time, unlike the rise-then-fall seen in `dat1`. This reflects a lack of early time points (< 61 days) in `dat2`, highlighting the importance of time coverage for modeling temporal trends.
+
 
 # 5. Discussion
 
-The MARS model revealed that demographic (age, gender), behavioral (smoking), and clinical (BMI) variables are meaningful predictors of post-vaccination antibody levels. The non-linear association with time since vaccination is particularly important for monitoring waning immunity.
+Our results showed that non-linear models performed better than linear ones in predicting antibody response. LASSO provided a useful baseline but was limited by its linear assumptions. GAM captured smooth non-linear effects, while MARS was most effective at identifying threshold changes and variable interactions. MARS achieved the best performance on both training and test datasets, suggesting strong generalizability.
 
-The model performed similarly on an independent dataset, supporting its generalizability. Slight degradation in GAM performance may reflect overfitting or mismatches in distributional characteristics across datasets.
+Key predictors included BMI, age, time since vaccination, gender, and smoking status. The model confirmed known biological patterns—such as lower responses in males and smokers, and declining antibodies over time. Some drop in GAM’s test performance highlights the need for well-matched training and test distributions, especially for time-sensitive variables. Overall, MARS offered a good balance of accuracy and interpretability.
 
 # 6. Conclusion
 
-We built a robust predictive model of antibody responses following vaccination using demographic and clinical data. Our findings underscore the importance of body composition, lifestyle, and time in shaping immune responses. Future work may expand this framework with immunogenomic or behavioral covariates and explore longer-term antibody trajectories.
+We developed predictive models of vaccine-induced antibody response using demographic and clinical data. MARS outperformed other models, capturing key non-linear trends and generalizing well to new data. Factors like BMI, time, gender, and smoking were strong predictors of immune response. These results can help identify groups who may benefit from closer monitoring or earlier booster doses. Future work could expand the model by adding biomarker or longitudinal data to improve prediction.
 

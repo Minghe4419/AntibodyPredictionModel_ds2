@@ -413,6 +413,36 @@ For continuous varibles, we observed consistent trends in the marginal effects o
 
 ## How Antibody Levels Change Over Time
 
+Since the both best GAM and best MARS model select age, gender, smoking, bmi, time as predictor, we will use them to analyze time decay behavior of antibody level.
+
+```{r}
+p_time <- pdp::partial(mars.fit, pred.var = c("time"), grid.resolution = 10) |> autoplot()
+p_time
+p_time_bmi <- pdp::partial(mars.fit, pred.var = c("time", "bmi"), 
+                   grid.resolution = 10) |>
+              pdp::plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE, 
+                       screen = list(z = 0, x = -60))
+
+p_time_gender <- pdp::partial(mars.fit, pred.var = c("time", "gender"), 
+                   grid.resolution = 10) |>
+              pdp::plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE, 
+                       screen = list(z = 0, x = -60))
+
+p_time_age <- pdp::partial(mars.fit, pred.var = c("time", "age"), 
+                   grid.resolution = 10) |>
+              pdp::plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE, 
+                       screen = list(z = 0, x = -60))
+
+p_time_smoking <- pdp::partial(mars.fit, pred.var = c("time", "smoking"), 
+                   grid.resolution = 10) |>
+              pdp::plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE, 
+                       screen = list(z = 0, x = -60))
+
+grid.arrange(p_time_bmi, p_time_gender, p_time_age, p_time_smoking, 
+             nrow = 2, ncol = 2)
+```
+With MARS model, we observe the antibody level have a sharp rise before time approximately less than 50 and then gradually decay, which aligns with the natural behavior regarding antibody level after the vaccination. Then we observe a consistent time-dependent pattern in the behavior of antibody levels, which also aligns with the overall trend of time decay behavior of antibody level. So we conclude that the time-dependent behavior of antibody levels is generally similar across these different and significant demographic and clinical factors.
+
 ```{r}
 dat1_ageGroup <- dat1 %>%
   mutate(age_group = ntile(age, 3)) %>%
@@ -464,3 +494,7 @@ plot(gam_diabetes_interact, shade = TRUE)
 
 plot(gam_hypertension_interact, shade = TRUE)
 ```
+
+Our another aim is to understand how the effects of time on antibody levels might vary across different demographic and clinical factors. Therefore, we examined the time decay behavior of antibody levels across different subgroups defined by categorical factors(demographic and clinical). 
+
+We observe that while the general pattern of antibody decay is similar across all subgroups, certain groups (such as the middle-aged, no hypertension, no diabetes subgroups) exhibit a sharper decline in antibody levels at the tail end of the time period. These factors may be important factors in shaping the rate of antibody decay who deserve more in-depth investigation.

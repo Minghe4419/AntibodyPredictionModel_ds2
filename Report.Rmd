@@ -31,7 +31,7 @@ To identify key predictors and build a robust predictive model of antibody respo
 
 ### 3.1 LASSO Regression
 
-We began with LASSO regression to reduce dimensionality and mitigate multicollinearity. Using the `glmnet` package with standardized predictors, cross-validation identified an optimal penalty (lambda.min = 0.0067). The final model selected a sparse subset of predictors: age, gender (Male), smoking (Current), BMI, time since vaccination, and race (Hispanic). Notably, both height and weight were excluded by the model, reaffirming the utility of LASSO in handling multicollinearity. The root mean squared error (RMSE) of the LASSO model on the training set was 0.5518, while its performance on the test set yielded an RMSE of 0.5749. These results highlight LASSO’s limitations in capturing complex, non-linear patterns, despite its value for feature selection.
+We began with LASSO regression to reduce dimensionality and mitigate multicollinearity. Using the `glmnet` package with standardized predictors, cross-validation identified an optimal penalty (lambda.min = 0.0067). The final model selected a sparse subset of predictors: age, gender (Male), smoking (Current), BMI, time since vaccination, and race (Hispanic). The root mean squared error (RMSE) of the LASSO model on the training set was 0.5518, while its performance on the test set yielded an RMSE of 0.5749. These results highlight LASSO’s limitations in capturing complex, non-linear patterns, despite its value for feature selection.
 
 ### 3.2 Generalized Additive Models (GAMs)
 
@@ -41,7 +41,6 @@ To better accommodate potential non-linear effects observed during exploratory a
 
 Finally, we implemented MARS using the `earth` package, which automatically captures non-linearities and interaction effects via piecewise linear basis functions. A grid search over model complexity parameters identified the optimal configuration with degree = 1 and nine basis functions (nprune = 9). The final model included hinge functions on BMI, age, and time, alongside categorical indicators for gender and smoking. Compared to other models, MARS demonstrated the best balance of flexibility and generalizability, achieving a training RMSE of 0.528 and a test RMSE of 0.5328. The inclusion of threshold-based transformations allowed MARS to capture inflection points—such as a decline in antibody levels beyond a BMI of approximately 27.8 or post-vaccination time beyond 57 days—that were difficult for other models to approximate.
 
-Cross-validation resampling confirmed the similar average performance of MARS and GAM, with nearly identical RMSEs (0.5283 vs. 0.5279). However, the superior test performance of MARS, alongside its interpretability, led us to select it as the final model.
 
 # 4. Results
 
@@ -61,9 +60,9 @@ MARS identified key non-linear effects: antibody levels peaked at BMI 23–27 an
 
 MARS achieved the lowest RMSE across datasets. Although GAM performed well during training, its test performance dropped, likely due to overfitting or distributional shifts (e.g., time range differences).
 
-### 4.3 Demographic Effects
+### 4.3 Demographic and Clinical Effects
 
-MARS predictions on `dat2` showed higher antibody levels in females (10.10 vs 9.83) and lower levels in current smokers (9.80) compared to former and never smokers (9.99). These align with known biological patterns.
+Across demographic and clinical subgroups, consistent differences in antibody responses were observed. MARS predictions on `dat2` showed higher antibody levels in females (10.10 vs 9.83 for males), and lower levels in current smokers (9.80) compared to former and never smokers (9.99). Age and BMI also exhibited strong non-linear effects—responses peaked at moderate BMI and declined with older age—reinforcing the robustness of the MARS model. These biologically plausible patterns highlight the model’s ability to detect subgroup-specific variations.
 
 ### 4.4 Temporal Trends
 
@@ -72,9 +71,7 @@ In `dat2`, antibody levels declined steadily with time, unlike the rise-then-fal
 
 # 5. Discussion
 
-Our results showed that non-linear models performed better than linear ones in predicting antibody response. LASSO provided a useful baseline but was limited by its linear assumptions. GAM captured smooth non-linear effects, while MARS was most effective at identifying threshold changes and variable interactions. MARS achieved the best performance on both training and test datasets, suggesting strong generalizability.
-
-Key predictors included BMI, age, time since vaccination, gender, and smoking status. The model confirmed known biological patterns—such as lower responses in males and smokers, and declining antibodies over time. Some drop in GAM’s test performance highlights the need for well-matched training and test distributions, especially for time-sensitive variables. Overall, MARS offered a good balance of accuracy and interpretability.
+Non-linear models outperformed linear ones in predicting antibody response. While LASSO served as a useful baseline, it missed complex trends. GAM captured smooth non-linear effects, but its test performance dropped, likely due to overfitting and time distribution mismatch. MARS showed the best balance of accuracy and interpretability, generalizing well across datasets. Key predictors included BMI, time since vaccination, gender, smoking status, and age, aligning with known biological patterns. These findings support using flexible models and highlight the importance of full time coverage for capturing antibody dynamics.
 
 # 6. Conclusion
 

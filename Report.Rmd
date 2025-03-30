@@ -35,12 +35,11 @@ We began with LASSO regression to reduce dimensionality and mitigate multicollin
 
 ### 3.2 Generalized Additive Models (GAMs)
 
-To better accommodate potential non-linear effects observed during exploratory analysis, we employed a Generalized Additive Model using the `mgcv` package. The model specification allowed smooth terms for continuous variables including age, SBP, LDL, BMI, time, height, and weight, while categorical variables such as gender, race, smoking, diabetes, and hypertension were modeled linearly. The GAM demonstrated moderate predictive capacity, achieving an adjusted R-squared of 0.22 and explaining 22.4% of the total deviance. Importantly, several smooth terms, including those for BMI and time, were statistically significant, indicating clear non-linear relationships. For instance, antibody levels peaked at moderate BMI values and declined with increasing time post-vaccination, reflecting biological trends of waning immunity. The GAM’s training RMSE was approximately 0.528, with test RMSE increasing to 0.5701, suggesting potential overfitting or sensitivity to shifts in predictor distributions across datasets.
+To better accommodate potential non-linear effects observed during exploratory analysis, we employed a Generalized Additive Model using the `mgcv` package. The model specification allowed smooth terms for continuous variables including age, SBP, LDL, BMI, time, while categorical variables such as gender, race, smoking, diabetes, and hypertension were modeled linearly. The GAM demonstrated moderate predictive capacity, achieving an adjusted R-squared of 0.22 and explaining 22.4% of the total deviance. Importantly, several smooth terms, including those for BMI and time, were statistically significant, indicating clear non-linear relationships. For instance, antibody levels peaked at moderate BMI values then declined at higher BMI levels. The GAM’s training RMSE was approximately 0.528, with test RMSE increasing to 0.5701, suggesting potential overfitting or sensitivity to shifts in predictor distributions across datasets.
 
 ### 3.3 Multivariate Adaptive Regression Splines (MARS)
 
-Finally, we implemented MARS using the `earth` package, which automatically captures non-linearities and interaction effects via piecewise linear basis functions. A grid search over model complexity parameters identified the optimal configuration with degree = 1 and nine basis functions (nprune = 9). The final model included hinge functions on BMI, age, and time, alongside categorical indicators for gender and smoking. Compared to other models, MARS demonstrated the best balance of flexibility and generalizability, achieving a training RMSE of 0.528 and a test RMSE of 0.5328. The inclusion of threshold-based transformations allowed MARS to capture inflection points—such as a decline in antibody levels beyond a BMI of approximately 27.8 or post-vaccination time beyond 57 days—that were difficult for other models to approximate.
-
+Finally, we implemented MARS using the `earth` package, which automatically captures non-linearities and interaction effects via piecewise linear basis functions. A grid search over model parameters identified the optimal configuration with degree = 1 (indicating no interaction terms) and nine basis functions (nprune = 9). The final model included hinge functions on BMI, age, and time, alongside categorical indicators for gender and smoking. Compared to other models, MARS demonstrated the best balance of flexibility and generalizability, achieving a training RMSE of 0.528 and a test RMSE of 0.5328. The inclusion of threshold-based transformations allowed MARS to capture inflection points—such as a decline in antibody levels beyond a BMI of approximately 23.7 or post-vaccination time beyond 57 days—that were difficult for other models to approximate.
 
 # 4. Results
 
@@ -48,7 +47,7 @@ The MARS model was selected as the final model due to its superior balance of pe
 
 ### 4.1 Final Model Interpretation (MARS)
 
-MARS identified key non-linear effects: antibody levels peaked at BMI 23–27 and declined beyond; responses decreased non-linearly after ~57 days post-vaccination and slightly with age (after ~59). Males and current smokers had lower predicted antibody levels. Partial dependence and LOESS plots on `dat2` confirmed these trends.
+MARS identified key non-linear effects: antibody levels peaked at about BMI 24 and declined beyond; responses increased before ~57 days post-vaccination but then decreased afterwards. Response decreased slightly as age increased. Males and current smokers had lower predicted antibody levels. Partial dependence and LOESS plots on `dat2` confirmed these trends.
 
 ### 4.2 Performance Metrics
 
@@ -62,12 +61,11 @@ MARS achieved the lowest RMSE across datasets. Although GAM performed well durin
 
 ### 4.3 Demographic and Clinical Effects
 
-Across demographic and clinical subgroups, consistent differences in antibody responses were observed. MARS predictions on `dat2` showed higher antibody levels in females (10.10 vs 9.83 for males), and lower levels in current smokers (9.80) compared to former and never smokers (9.99). Age and BMI also exhibited strong non-linear effects—responses peaked at moderate BMI and declined with older age—reinforcing the robustness of the MARS model. These biologically plausible patterns highlight the model’s ability to detect subgroup-specific variations.
+Across demographic and clinical subgroups, consistent differences in antibody responses were observed. MARS predictions on `dat2` showed higher antibody levels in females (10.10 vs 9.83 for males), and lower levels in current smokers (9.80) compared to former and never smokers (9.99). Age and BMI also exhibited strong non-linear effects: responses peaked at moderate variable values and then declined as variable value increased. The marginal effect of each variable is the same as in dat1, reinforcing MARS model robustness. These biologically plausible patterns highlight the model’s ability to detect subgroup-specific variations.
 
 ### 4.4 Temporal Trends
 
 In `dat2`, antibody levels declined steadily with time, unlike the rise-then-fall seen in `dat1`. This reflects a lack of early time points (< 61 days) in `dat2`, highlighting the importance of time coverage for modeling temporal trends.
-
 
 # 5. Discussion
 

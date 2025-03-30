@@ -5,7 +5,7 @@ date: "`r Sys.Date()`"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE, warning=FALSE}
+```{r setup, include=FALSE, warning=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(reshape2)
@@ -317,38 +317,46 @@ ggplot(mars.fit)
 
 mars.fit$bestTune
 
-coef(mars.fit$finalModel) 
-```
-
-```{r}
-p1 <- pdp::partial(mars.fit, pred.var = c("bmi"), grid.resolution = 10) |> autoplot()
-p2 <- pdp::partial(mars.fit, pred.var = c("bmi", "age"), 
-                   grid.resolution = 10) |>
-      pdp::plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE, 
-                       screen = list(z = 20, x = -60))
-
-gridExtra::grid.arrange(p1, p2, ncol = 2)
+summary(mars.fit)
 ```
 
 ```{r}
 plotmo(mars.fit,
 nresponse = 1,
-degree2 = FALSE,
-varnames = "age")
+degree2 = FALSE)
+```
+
+We fit a Multivariate Adaptive Regression Splines (MARS) model to explore nonlinear and piecewise linear associations between antibody levels and a set of demographic, clinical, and time-related predictors. The best model selected through cross-validation used an additive structure (degree = 1, indicating no interaction effects among predictors) with 9 basis functions (nprune=9), explaining 22.2% of the deviance.
+
+Among categorical variables, male gender and current smoking were associated with lower antibody levels, while other predictors like race, diabetes, and hypertension were excluded from the final model, indicating limited contribution to prediction.
+
+Several continuous variables demonstrated nonlinear threshold effects via hinge functions. In particular, BMI exhibited a peaked relationship: antibody levels increased up to a moderate BMI (~23.7), then declined at higher BMI levels. Similarly, time since vaccination exhibited a nonlinear trend, with antibody levels increasing up to approximately 57 days post-vaccination and then declining thereafter.
+
+The MARS model effectively identified and modeled piecewise linear patterns and threshold effects without explicitly specifying them, confirming its usefulness in capturing key nonlinear structures in immune response data.
+
+To show the necessity of using nonlinear models (GAM and MARS), we also fit a simple linear model to make comparison.
+
+```{r}
+# Simple linear model
+lm.fit <- train(train_x, train_y,
+                method = "lm",
+                trControl = ctrl1)
 ```
 
 # Model selection
 
-To select the best model, we can compare the cross-validated metrics of the MARS and GAM models using resampling, this helps evaluate and visualize the relative performance of the two models.
+To select the best model, we can compare the cross-validated metrics of the models using resampling, this helps evaluate and visualize the relative performance of the models.
 
 ```{r}
-resamp <- resamples(list(mars = mars.fit, gam = gam.fit))
+resamp <- resamples(list(mars = mars.fit, gam = gam.fit, lm=lm.fit))
 summary(resamp)
 
 bwplot(resamp, metric = "RMSE")
 ```
 
-The distribution of RMSE across cross-validation is also similar, with GAM model showing a slightly lower median RMSE compared to MARS model.  
+Apparently, the mean and standard error of RMSE of the simple linear model across cross-validation is quite bad, indicating that the simple linear is definitely not a good choice, so in the following we only need to discuss GAM and MARS model
+
+The distribution of RMSE (of GAM and MARS model) across cross-validation is also similar, with GAM model showing a slightly lower median RMSE compared to MARS model.  
 Moreover, both models achieve lower average RMSE on the training set (dat1) compared to the Lasso model (Lasso model train RMSE: 0.5518, test RMSE: 0.5749), suggesting better performance. This may be attributed to the presence of nonlinear relationships between the response variable (log_antibody) and some predictors (such as bmi and time), which cannot be effectively captured by the linear structure of Lasso regression.
 
 We should also evaluate the generalizability of the trained MARS and GAM models by computing RMSE on the test set (dat2).
@@ -363,11 +371,18 @@ print(paste("RMSE on test set (MARS model):", round(mars_test_rmse, 4)))
 gam.pred <- predict(gam.fit, newdata = dat2)
 gam_test_rmse = sqrt(mean((gam.pred - dat2[, "log_antibody"])^2))
 print(paste("RMSE on test set (GAM model):", round(gam_test_rmse, 4)))
+
+# test RMSE of GAM model
+lm.pred <- predict(lm.fit, newdata = dat2)
+lm_test_rmse = sqrt(mean((lm.pred - dat2[, "log_antibody"])^2))
+print(paste("RMSE on test set (simple linear model):", round(lm_test_rmse, 4)))
 ```
 
 Both MARS and GAM models show very similar performance in cross-validation, with nearly identical mean RMSE values (0.5283 vs 0.5279).  
 However, on the test set, the MARS model achieves a lower RMSE (0.5328) compared to the GAM model (0.5701), suggesting better generalization.  
 Given this gap in test performance while maintaining comparable training performance, the MARS model appears to be the better choice in this case.
+
+# Results and Discussion
 
 ## Influence of Demographic and Clinical Factors on Antibody Responses
 
@@ -381,8 +396,8 @@ dat2 %>%
 dat2 %>%
   group_by(smoking) %>%
   summarise(mean_pred = mean(pred_mars), sd_pred = sd(pred_mars))
-
 ```
+
 For categorical predictors, the predicted antibody levels from the MARS model on dat2 are consistent with the trends observed during model training on dat1. Specifically, females show higher predicted antibody levels than males (10.10 vs. 9.83), reflecting potential gender-related differences in immune response. Similarly, current smokers exhibit the lowest predicted antibody levels (mean = 9.80) compared to former and never smokers (means = 9.98 and 9.99, respectively), aligning with immunological evidence that smoking impairs vaccine response. These results reinforce the reliability of the model and suggest meaningful differences in antibody responses across demographic and behavioral subgroups.
 
 ```{r}
@@ -406,10 +421,9 @@ ggplot(dat2, aes(x = time, y = pred_mars)) +
 ```{r}
 summary(dat1$time)
 summary(dat2$time)
-
 ```
-For continuous varibles, we observed consistent trends in the marginal effects of BMI and age on predicted antibody levels between dat1 and dat2, indicating stable model behavior across datasets. However, the relationship between time since vaccination and predicted antibody levels differs noticeably: while dat1 shows an initial sharp rise followed by a gradual decline (consistent with typical post-vaccination antibody dynamics), the prediction on dat2 displays a more uniformly decreasing trend. Upon examining the distribution of the time variable, we found that this shift in behavior is due to the absence of early time points in dat2 — specifically, no observations exist for time < 61. As a result, the model cannot capture the early rise phase in dat2, and instead predicts a smoother, gradual decline.
 
+For continuous varibles, we observed consistent trends in the marginal effects of BMI and age on predicted antibody levels between dat1 and dat2, indicating stable model behavior across datasets. However, the relationship between time since vaccination and predicted antibody levels differs noticeably: while dat1 shows an initial sharp rise followed by a gradual decline (consistent with typical post-vaccination antibody dynamics), the prediction on dat2 displays a more uniformly decreasing trend. Upon examining the distribution of the time variable, we found that this shift in behavior is due to the absence of early time points in dat2 — specifically, no observations exist for time < 61. As a result, the model cannot capture the early rise phase in dat2, and instead predicts a smoother, gradual decline.
 
 ## How Antibody Levels Change Over Time
 
@@ -441,6 +455,7 @@ p_time_smoking <- pdp::partial(mars.fit, pred.var = c("time", "smoking"),
 grid.arrange(p_time_bmi, p_time_gender, p_time_age, p_time_smoking, 
              nrow = 2, ncol = 2)
 ```
+
 With MARS model, we observe the antibody level have a sharp rise before time approximately less than 50 and then gradually decay, which aligns with the natural behavior regarding antibody level after the vaccination. Then we observe a consistent time-dependent pattern in the behavior of antibody levels, which also aligns with the overall trend of time decay behavior of antibody level. So we conclude that the time-dependent behavior of antibody levels is generally similar across these different and significant demographic and clinical factors.
 
 ```{r}
@@ -455,7 +470,6 @@ dat1_ageGroup <- dat1 %>%
 gam_decay <- gam(log_antibody ~ s(time) + age + gender + diabetes + hypertension,
                  data = dat1, method = "REML")
 plot(gam_decay, select = 1, shade = TRUE)
-library(mgcv)
 
 gam_age_interact <- gam(
   log_antibody ~ s(time, by = age_group) + age_group + gender + bmi + SBP + LDL +

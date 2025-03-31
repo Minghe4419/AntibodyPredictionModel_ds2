@@ -61,7 +61,7 @@ MARS achieved the lowest RMSE across datasets. Although GAM performed well durin
 
 ### 4.3 Demographic and Clinical Effects
 
-Across demographic and clinical subgroups, consistent differences in antibody responses were observed. MARS predictions on `dat2` showed higher antibody levels in females (10.10 vs 9.83 for males), and lower levels in current smokers (9.80) compared to former and never smokers (9.99). Age and BMI also exhibited strong non-linear effects: responses peaked at moderate variable values and then declined as variable value increased. The marginal effect of each variable is the same as in dat1, reinforcing MARS model robustness. These biologically plausible patterns highlight the model’s ability to detect subgroup-specific variations.
+Across demographic and clinical factors, consistent trend of partial dependence on response were observed. MARS predictions on `dat2` showed lower antibody levels in males and current smokers as expected. Age and BMI against antibody behave differently from trained model when using dat2, but can be explained by its different distribution. So we can still consider MARS model robust and well-generalized.
 
 ### 4.4 Temporal Trends
 
@@ -69,9 +69,8 @@ In `dat2`, antibody levels declined steadily with time, unlike the rise-then-fal
 
 # 5. Discussion
 
-Non-linear models outperformed linear ones in predicting antibody response. While LASSO served as a useful baseline, it missed complex trends. GAM captured smooth non-linear effects, but its test performance dropped, likely due to overfitting and time distribution mismatch. MARS showed the best balance of accuracy and interpretability, generalizing well across datasets. Key predictors included BMI, time since vaccination, gender, smoking status, and age, aligning with known biological patterns. These findings support using flexible models and highlight the importance of full time coverage for capturing antibody dynamics.
+Non-linear models outperformed linear ones in predicting antibody response. While LASSO served as a useful baseline, it missed complex trends. GAM captured smooth non-linear effects, but its test performance dropped. MARS showed the best balance of accuracy and interpretability, generalizing well across datasets attributed to its variable selection feature and flexibility in detecting and fitting pattern when our data has sharp turn. MARS also performs well in understanding partial factors' effects. And GAM is useful when understanding subgroup effect on time decaying behavior within factors. Key predictors included BMI, time, etc, aligning with known biological patterns. These findings support using flexible models and highlight the importance of full time coverage for capturing antibody dynamics. 
 
 # 6. Conclusion
 
 We developed predictive models of vaccine-induced antibody response using demographic and clinical data. MARS outperformed other models, capturing key non-linear trends and generalizing well to new data. Factors like BMI, time, gender, and smoking were strong predictors of immune response. These results can help identify groups who may benefit from closer monitoring or earlier booster doses. Future work could expand the model by adding biomarker or longitudinal data to improve prediction.
-

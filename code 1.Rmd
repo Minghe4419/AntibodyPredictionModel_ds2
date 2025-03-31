@@ -16,6 +16,7 @@ library(mgcv)
 library(pdp)
 library(earth)
 library(gridExtra)
+
 ```
 
 # Exploratory Data Analysis
@@ -215,7 +216,6 @@ Then for categorical variable, generate boxplots to visualize the distribution o
 
 ```{r warning=FALSE}
 categorical_name <- c("gender", "race", "smoking", "diabetes", "hypertension")
-
 plot_list <- list()
 
 for (name in categorical_name) {
@@ -228,6 +228,7 @@ for (name in categorical_name) {
 }
 
 do.call("grid.arrange", c(plot_list, nrow = 2, ncol = 3))
+
 ```
 
 The boxplots suggest that the distribution of log_antibody does not differ substantially across the categories of each categorical variable, indicating limited evidence of strong group-level effects.
@@ -301,10 +302,7 @@ gam.fit$bestTune
 
 gam.fit$finalModel
 summary(gam.fit$finalModel)
-
-par(mfrow = c(3,3))  # Set plotting layout to 3x3 grid
 plot(gam.fit$finalModel)
-par(mfrow = c(1,1))
 ```
 
 We fit a Generalized Additive Model (GAM) to examine both linear and nonlinear relationships between antibody levels and a set of demographic, clinical, and time-related predictors. The model achieved an adjusted R² of 0.22 and explained 22.4% of the deviance, indicating a moderate fit that captures key patterns in the data. Among the categorical predictors, male gender and current smoking were significantly associated with lower antibody responses, while race, diabetes, and hypertension did not show statistically significant effects. Several continuous variables exhibited nonlinear effects: notably, BMI and time since vaccination demonstrated strong and statistically significant nonlinear associations with antibody levels. Antibody responses peaked at a moderate BMI and declined at higher levels, while time since vaccination showed a characteristic waning immunity curve, with predicted antibody levels decreasing nonlinearly over time. These findings support the relevance of GAM for capturing complex decay behavior in vaccine-induced immune responses against both demographic and clinical factors.
